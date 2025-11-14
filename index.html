@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale-1.0">
+        <title>Anki Audio Generator</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+                background: #0a0a0a;
+                color: #ffffff; 
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 2rem;
+            }
+
+            .container {
+                max-width: 600px;
+                width: 100%;
+            }
+
+            h1 {
+                font-size: 2.5rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                letter-spacing: -0.02em;
+            }
+
+            .subtitle {
+                color: #888;
+                font-size: 1.1rem;
+                margin-bottom: 3rem;
+            }
+
+            .upload-area {
+                border: 2px dashed #333;
+                border-radius: 12px;
+                padding: 4rem 2rem;
+                text-align: center;
+                transition: all 0.3s ease;
+                cursor: pointer;
+                background: #111; 
+            }
+
+            .upload-area:hover {
+                border-color: #666;
+                background: #151515;
+            }
+
+            .upload-area.dragover {
+                border-color: #fff;
+                background: #1a1a1a;
+            }
+
+            .upload-icon {
+                font-size: 3rem;
+                margin-bottom: 1rem;
+                opacity: 0.6;
+            }
+
+            .upload-text {
+                font-size: 1.2rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .upload-hint {
+                color: #666;
+                font-size: 0.9rem;
+            }
+
+            input[type='file'] {
+                display: none;
+            }
+
+            .file-info {
+                margin-top: 2rem;
+                padding: 1.5rem;
+                background: #111;
+                border-radius: 8px;
+                border: 1px solid #222;
+                display: none;
+            }
+
+            .file-info.show {
+                display: block;
+            }
+
+            .file-name {
+                font-size: 1rem;
+                margin-bottom: 0.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .file-size {
+                color: #888;
+                font-size: 0.9rem;
+            }
+
+            .status {
+                margin-top: 1rem;
+                padding: 075rem;
+                border-radius: 6px;
+                font-size: 0.9rem;
+            }
+
+            .status.success {
+                background: #0f3a2f;
+                color: #5eead4;
+                border: 1px solid #134e3a;
+            }
+
+            .status.error {
+                background: #0f3a2f;
+                color: #fca5a5; 
+                border: 1px solid #4e1313;
+            }
+
+            .remove-btn {
+                background: none;
+                border: 1px solid #333;
+                color: #fff;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 0.9rem;
+                margin-top: 1rem;
+                transition: all 0.2s ease;
+            }
+
+            .remove-btn:hover {
+                border-color: #666;
+                background: #1a1a1a; 
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Anki Audio Generator</h1>
+            <p class="subtitle">Upload your Anki deck to add Audio in the target language</p>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📦</div>
+                <div class="upload-text">Drop your .apkg file here</div>
+                <div class="upload-hint">Or click to browse your files</div>
+                <input type="file" id="fileInput" accept=".apkg">
+            </div>
+
+            <div class="file-info" id="fileInfo">
+                <div class="file-name" id="fileName"></div>
+                <div class="file-size" id="fileSize"></div>
+                <div class="status success " id="status" style="display: none;"></div>
+                <button class="remove-btn" id="removeBtn">Remove file</button>
+            </div>
+        </div>
+
+        <script>
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementbyId('fileInput');
+            const fileInfo = document.getElementbyId('fileInfo');
+            const fileName = document.getElementbyId('fileName');
+            const fileSize = document.getElementbyId('fileSize');
+            const status = document.getElementbyId('status');
+            const removeBtn = document.getElementbyId('removeBtn');
+
+            let selectedFile = null;
+
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFile(e.target.files[0]);
+            });
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                handleFile(e.dataTransfer.files[0]);
+            });
+
+            removeBtn.addEventListener('click', () => {
+                selectedFile = null;
+                fileInput.value = '';
+                fileInfo.classList.remove('show');
+                status.style.display = 'none';
+            });
+
+            function handleFile(file) {
+                if (!file.name.endsWIth('.apkg')) {
+                    showStatus('Please upload a valid .apkg file', 'error');
+                    return;
+                }
+
+                const maxSize = 50 * 1024 * 1024; // 50mb
+                if (file.size > maxSize) {
+                    showStatus('File is too large. Maximum sizeis 50MB', 'error');
+                    return;
+                }
+
+                selectedFile = file;
+
+                //file info display
+                fileName.innerHTML = `${file.name}`;
+                
+            }
+
+        </script>
+    </body>
