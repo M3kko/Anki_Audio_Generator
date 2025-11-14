@@ -109,7 +109,7 @@
 
             .status {
                 margin-top: 1rem;
-                padding: 075rem;
+                padding: 0.75rem;
                 border-radius: 6px;
                 font-size: 0.9rem;
             }
@@ -121,8 +121,8 @@
             }
 
             .status.error {
-                background: #0f3a2f;
-                color: #fca5a5; 
+                background: #3a0f0f;
+                color: #fca5a5;
                 border: 1px solid #4e1313;
             }
 
@@ -140,7 +140,116 @@
 
             .remove-btn:hover {
                 border-color: #666;
-                background: #1a1a1a; 
+                background: #1a1a1a;
+            }
+
+            .config-section {
+                margin-top: 2rem;
+                padding: 2rem;
+                background: #111;
+                border-radius: 12px;
+                border: 1px solid #222;
+                display: none;
+            }
+
+            .config-section.show {
+                display: block;
+            }
+
+            .config-section h2 {
+                font-size: 1.3rem;
+                margin-bottom: 1.5rem;
+                font-weight: 600;
+            }
+
+            .form-group {
+                margin-bottom: 1.5rem;
+            }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 0.5rem;
+                color: #aaa;
+                font-size: 0.9rem;
+            }
+
+            .form-group select {
+                width: 100%;
+                padding: 0.75rem;
+                background: #0a0a0a;
+                border: 1px solid #333;
+                border-radius: 8px;
+                color: #fff;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
+            .form-group select:hover {
+                border-color: #666;
+            }
+
+            .form-group select:focus {
+                outline: none;
+                border-color: #fff;
+            }
+
+            .process-btn {
+                width: 100%;
+                padding: 1rem;
+                background: #fff;
+                color: #0a0a0a;
+                border: none;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
+            .process-btn:hover {
+                background: #e5e5e5;
+            }
+
+            .process-btn:disabled {
+                background: #333;
+                color: #666;
+                cursor: not-allowed;
+            }
+
+            .progress-section {
+                margin-top: 2rem;
+                padding: 2rem;
+                background: #111;
+                border-radius: 12px;
+                border: 1px solid #222;
+                display: none;
+            }
+
+            .progress-section.show {
+                display: block;
+            }
+
+            .progress-bar {
+                width: 100%;
+                height: 8px;
+                background: #222;
+                border-radius: 4px;
+                overflow: hidden;
+                margin-bottom: 1rem;
+            }
+
+            .progress-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #5eead4, #3b82f6);
+                width: 0%;
+                transition: width 0.3s ease;
+            }
+
+            .progress-text {
+                color: #888;
+                font-size: 0.9rem;
+                text-align: center;
             }
         </style>
     </head>
@@ -162,16 +271,82 @@
                 <div class="status success " id="status" style="display: none;"></div>
                 <button class="remove-btn" id="removeBtn">Remove file</button>
             </div>
+
+            <div class="config-section" id="configSection">
+                <h2>Configure Audio Generation</h2>
+
+                <div class="form-group">
+                    <label for="targetLanguage">Target Language for Audio</label>
+                    <select id="targetLanguage">
+                        <option value="">Select language...</option>
+                        <option value="en-US">English (USA)</option>
+                        <option value="en-GB">English (UK)</option>
+                        <option value="en-AU">English (Australia)</option>
+                        <option value="en-CA">English (Canada)</option>
+                        <option value="es-ES">Spanish (Spain)</option>
+                        <option value="es-MX">Spanish (Mexico)</option>
+                        <option value="fr-FR">French (France)</option>
+                        <option value="fr-CA">French (Canada)</option>
+                        <option value="pt-BR">Portuguese (Brazil)</option>
+                        <option value="pt-PT">Portuguese (Portugal)</option>
+                        <option value="ar-SA">Arabic (Saudi Arabia)</option>
+                        <option value="ar-AE">Arabic (UAE)</option>
+                        <option value="ja">Japanese</option>
+                        <option value="zh">Chinese</option>
+                        <option value="de">German</option>
+                        <option value="hi">Hindi</option>
+                        <option value="ko">Korean</option>
+                        <option value="it">Italian</option>
+                        <option value="id">Indonesian</option>
+                        <option value="nl">Dutch</option>
+                        <option value="tr">Turkish</option>
+                        <option value="fil">Filipino</option>
+                        <option value="pl">Polish</option>
+                        <option value="sv">Swedish</option>
+                        <option value="bg">Bulgarian</option>
+                        <option value="ro">Romanian</option>
+                        <option value="cs">Czech</option>
+                        <option value="el">Greek</option>
+                        <option value="fi">Finnish</option>
+                        <option value="hr">Croatian</option>
+                        <option value="ms">Malay</option>
+                        <option value="sk">Slovak</option>
+                        <option value="da">Danish</option>
+                        <option value="ta">Tamil</option>
+                        <option value="uk">Ukrainian</option>
+                        <option value="ru">Russian</option>
+                        <option value="hu">Hungarian</option>
+                        <option value="no">Norwegian</option>
+                        <option value="vi">Vietnamese</option>
+                    </select>
+                </div>
+
+                <button class="process-btn" id="processBtn" disabled>Generate Audio</button>
+            </div>
+
+            <div class="progress-section" id="progressSection">
+                <h2>Processing...</h2>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Analyzing deck...</div>
+            </div>
         </div>
 
         <script>
             const uploadArea = document.getElementById('uploadArea');
-            const fileInput = document.getElementbyId('fileInput');
-            const fileInfo = document.getElementbyId('fileInfo');
-            const fileName = document.getElementbyId('fileName');
-            const fileSize = document.getElementbyId('fileSize');
-            const status = document.getElementbyId('status');
-            const removeBtn = document.getElementbyId('removeBtn');
+            const fileInput = document.getElementById('fileInput');
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+            const status = document.getElementById('status');
+            const removeBtn = document.getElementById('removeBtn');
+            const configSection = document.getElementById('configSection');
+            const targetLanguage = document.getElementById('targetLanguage');
+            const processBtn = document.getElementById('processBtn');
+            const progressSection = document.getElementById('progressSection');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
 
             let selectedFile = null;
 
@@ -202,11 +377,30 @@
                 selectedFile = null;
                 fileInput.value = '';
                 fileInfo.classList.remove('show');
+                configSection.classList.remove('show');
+                progressSection.classList.remove('show');
                 status.style.display = 'none';
+                processBtn.disabled = true;
+            });
+
+            targetLanguage.addEventListener('change', () => {
+                processBtn.disabled = !targetLanguage.value;
+            });
+
+            processBtn.addEventListener('click', async () => {
+                if (!selectedFile || !targetLanguage.value) return;
+
+                processBtn.disabled = true;
+                progressSection.classList.add('show');
+
+                await processFile(selectedFile, targetLanguage.value);
+                
             });
 
             function handleFile(file) {
-                if (!file.name.endsWIth('.apkg')) {
+                if (!file) return;
+
+                if (!file.name.endsWith('.apkg')) {
                     showStatus('Please upload a valid .apkg file', 'error');
                     return;
                 }
@@ -221,8 +415,67 @@
 
                 //file info display
                 fileName.innerHTML = `${file.name}`;
-                
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.classList.add('show');
+                configSection.classList.add('show');
+
+                showStatus('File uploaded successfully! Please select target language below', 'success');
+
+                console.log('file ready:', file);
             }
+
+            async function processFile(file, language) {
+                try {
+                    updateProgress(0, 'uploading deck...');
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('language', language);
+
+                    const response = await fetch ('/api/process', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Processing failed');
+                    }
+
+                    updateProgress(100, 'Complete!')
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.name.replace('.apkg', '_with_audio.apkg');
+                    a.click();
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    showStatus('Processing failed. Please try again.', 'error');
+                    progressSection.classList.remove('show');
+                    processBtn.disabled = false;
+                }
+            }
+
+            function updateProgress(percent, message) {
+                progressFill.style.width = percent + '%';
+                progressText.textContent = message;
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            }
+
+            function showStatus(message, type) {
+              status.textContent = message;
+              status.className = `status ${type}`;
+              status.style.display = 'block';
+          }
 
         </script>
     </body>
