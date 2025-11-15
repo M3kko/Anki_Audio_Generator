@@ -268,21 +268,33 @@ def home():
 @app.route('/api/process', methods=['POST'])
 def process():
     try:
+        print("=== Process request received ===")
+        print(f"Request files: {request.files}")
+        print(f"Request form: {request.form}")
+
         # Get file and language from request
         if 'file' not in request.files:
+            print("ERROR: No file in request")
             return jsonify({"status": "error", "message": "No file uploaded"}), 400
 
         file = request.files['file']
         language = request.form.get('language')
 
+        print(f"File: {file.filename}, Language: {language}")
+
         if not language:
+            print("ERROR: No language specified")
             return jsonify({"status": "error", "message": "No language specified"}), 400
 
         # Read file data
         file_data = file.read()
+        print(f"File size: {len(file_data)} bytes")
 
         # Process the deck
+        print(f"Starting deck processing...")
         output_data, updated_count = process_deck(file_data, language)
+
+        print(f"Processing complete! Updated {updated_count} cards")
 
         # Return the modified deck
         return send_file(
@@ -293,7 +305,9 @@ def process():
         )
 
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
