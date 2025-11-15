@@ -135,7 +135,7 @@ def generate_audio_elevenlabs(text, language):
         # Use default voice (you can customize per language)
         audio_generator = elevenlabs_client.generate(
             text=text,
-            voice="Adam",  # Default voice
+            voice="21m00Tcm4TlvDq8ikWAM",
             model="eleven_multilingual_v2"
         )
 
