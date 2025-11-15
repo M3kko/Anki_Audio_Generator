@@ -53,7 +53,7 @@ LANGUAGE_MAP = {
     'uk': Language.UKRAINIAN,
     'ru': Language.RUSSIAN,
     'hu': Language.HUNGARIAN,
-    'no': Language.NORWEGIAN,
+    'no': Language.BOKMAL,
     'vi': Language.VIETNAMESE,
 }
 
