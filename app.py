@@ -136,7 +136,8 @@ def generate_audio_elevenlabs(text, language):
         audio_generator = elevenlabs_client.generate(
             text=text,
             voice="21m00Tcm4TlvDq8ikWAM",
-            model="eleven_turbo_v2_5"
+            model="eleven_turbo_v2_5",
+            language_code=language
         )
 
         # Convert generator to bytes
