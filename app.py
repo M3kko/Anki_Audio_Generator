@@ -150,13 +150,17 @@ def generate_audio_elevenlabs(text, language):
 
 def process_deck(apkg_file, target_language):
     """Process Anki deck and add audio"""
+    print(f"=== process_deck called with language: {target_language} ===")
 
     target_lang = LANGUAGE_MAP.get(target_language)
     if not target_lang:
         raise ValueError(f"Unsupported language: {target_language}")
 
+    print(f"Target language mapped to: {target_lang}")
+
     # Create temp directory
     with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Created temp directory: {temp_dir}")
         # Extract .apkg file
         apkg_path = os.path.join(temp_dir, 'deck.apkg')
         with open(apkg_path, 'wb') as f:
@@ -177,41 +181,54 @@ def process_deck(apkg_file, target_language):
         # Get all notes
         cursor.execute("SELECT id, flds FROM notes")
         notes = cursor.fetchall()
+        print(f"Found {len(notes)} notes in deck")
 
         audio_files = {}
         updated_count = 0
 
         for note_id, fields_str in notes:
             fields = fields_str.split('\x1f')  # Anki uses \x1f as field separator
+            print(f"\nNote {note_id}: {len(fields)} fields")
 
             updated_fields = []
             modified = False
 
-            for field in fields:
+            for i, field in enumerate(fields):
                 # Skip if already has audio
                 if has_audio_tag(field):
+                    print(f"  Field {i}: Already has audio, skipping")
                     updated_fields.append(field)
                     continue
 
                 # Detect language
                 detected_lang = detect_field_language(field)
+                clean_text = re.sub('<[^<]+?>', '', field).strip()
+                print(f"  Field {i}: '{clean_text[:50]}...' -> detected: {detected_lang}, target: {target_lang}")
 
                 if detected_lang == target_lang:
                     # This field matches target language, generate audio
+                    print(f"  ✓ MATCH! Generating audio for this field")
                     clean_text = re.sub('<[^<]+?>', '', field).strip()
 
                     if clean_text:
                         text_hash = generate_audio_hash(clean_text)
+                        print(f"    Text hash: {text_hash}")
 
                         # Check cache
                         audio_data = get_cached_audio(text_hash)
 
                         if not audio_data:
                             # Generate new audio
+                            print(f"    Generating new audio with ElevenLabs...")
                             audio_data = generate_audio_elevenlabs(clean_text, target_language)
 
                             if audio_data:
+                                print(f"    Audio generated! Size: {len(audio_data)} bytes")
                                 cache_audio(text_hash, clean_text, audio_data, target_language)
+                            else:
+                                print(f"    ERROR: Audio generation failed!")
+                        else:
+                            print(f"    Using cached audio, size: {len(audio_data)} bytes")
 
                         if audio_data:
                             # Save audio file
@@ -222,6 +239,7 @@ def process_deck(apkg_file, target_language):
                             updated_field = field + f" [sound:{audio_filename}]"
                             updated_fields.append(updated_field)
                             modified = True
+                            print(f"    Added sound tag to field")
                         else:
                             updated_fields.append(field)
                     else:
