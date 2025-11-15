@@ -171,10 +171,21 @@ def process_deck(apkg_file, target_language):
         os.makedirs(extract_dir)
 
         with zipfile.ZipFile(apkg_path, 'r') as zip_ref:
+            print(f"Files in .apkg: {zip_ref.namelist()}")
             zip_ref.extractall(extract_dir)
+
+        # Check what database file exists
+        files_in_extract = os.listdir(extract_dir)
+        print(f"Extracted files: {files_in_extract}")
 
         # Read deck using SQLite
         db_path = os.path.join(extract_dir, 'collection.anki2')
+        if not os.path.exists(db_path):
+            # Try collection.anki21
+            db_path = os.path.join(extract_dir, 'collection.anki21')
+            print(f"Using collection.anki21 instead")
+
+        print(f"Database path: {db_path}, exists: {os.path.exists(db_path)}")
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
