@@ -178,12 +178,14 @@ def process_deck(apkg_file, target_language):
         files_in_extract = os.listdir(extract_dir)
         print(f"Extracted files: {files_in_extract}")
 
-        # Read deck using SQLite
-        db_path = os.path.join(extract_dir, 'collection.anki2')
+        # Read deck using SQLite - prioritize newer format
+        db_path = os.path.join(extract_dir, 'collection.anki21')
         if not os.path.exists(db_path):
-            # Try collection.anki21
-            db_path = os.path.join(extract_dir, 'collection.anki21')
-            print(f"Using collection.anki21 instead")
+            # Fall back to collection.anki2
+            db_path = os.path.join(extract_dir, 'collection.anki2')
+            print(f"Using collection.anki2 fallback")
+        else:
+            print(f"Using collection.anki21 (modern format)")
 
         print(f"Database path: {db_path}, exists: {os.path.exists(db_path)}")
         conn = sqlite3.connect(db_path)
