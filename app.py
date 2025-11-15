@@ -132,11 +132,11 @@ def cache_audio(text_hash, text, audio_data, language):
 def generate_audio_elevenlabs(text, language):
     """Generate audio using ElevenLabs API"""
     try:
-        # Use default voice (you can customize per language)
+        # Use Turbo v2.5 - cheaper and faster than multilingual_v2
         audio_generator = elevenlabs_client.generate(
             text=text,
             voice="21m00Tcm4TlvDq8ikWAM",
-            model="eleven_multilingual_v2"
+            model="eleven_turbo_v2_5"
         )
 
         # Convert generator to bytes
