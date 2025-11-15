@@ -256,3 +256,4 @@ def process_deck(apkg_file, target_language):
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 error_response = {'status': 'error', 'message': str(e)}
+                self.wfile.write(json.dumps(error_response).encode())
