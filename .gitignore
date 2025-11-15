@@ -1,0 +1,10 @@
+.env
+.vercel
+__pycache__/
+*.pyc
+*.apkg
+*.mp3
+venv/
+.venv/
+node_modules/
+.DS_Store

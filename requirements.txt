@@ -1,0 +1,4 @@
+genanki==0.13.1
+lingua-language-detector==2.0.2
+elevenlabs==1.15.0
+supabase==2.10.0
