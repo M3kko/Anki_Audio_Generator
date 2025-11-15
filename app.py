@@ -132,12 +132,13 @@ def cache_audio(text_hash, text, audio_data, language):
 def generate_audio_elevenlabs(text, language):
     """Generate audio using ElevenLabs API"""
     try:
-        # Use Turbo v2.5 - cheaper and faster than multilingual_v2
-        audio_generator = elevenlabs_client.generate(
+        # Use convert() method instead of generate() to support language_code
+        # eleven_turbo_v2_5 is the only model that supports language enforcement
+        audio_generator = elevenlabs_client.text_to_speech.convert_as_stream(
+            voice_id="21m00Tcm4TlvDq8ikWAM",  # Rachel voice (multilingual)
             text=text,
-            voice="21m00Tcm4TlvDq8ikWAM",
-            model="eleven_turbo_v2_5",
-            language_code=language
+            model_id="eleven_turbo_v2_5",
+            language_code=language  # Turbo v2.5 supports this parameter
         )
 
         # Convert generator to bytes
