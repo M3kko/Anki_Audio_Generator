@@ -3,8 +3,10 @@ import json
 import os
 import tempfile
 import hashlib
+import cgi
 from io import BytesIO
-import genkanki
+import zipfile
+import genanki
 from lingua import Language, LanguageDetectorBuilder
 from elevenlabs.client import ElevenLabs
 from supabase import create_client, Client
@@ -21,7 +23,7 @@ elevenlabs_client = ElevenLabs(
 detector = LanguageDetectorBuilder.from_all_languages().build()
 
 LANGUAGE_MAP = {
-    'en-US': Language.ENGLISH,
+    'en': Language.ENGLISH,
     'es': Language.SPANISH,
     'fr': Language.FRENCH,
     'pt': Language.PORTUGUESE,
@@ -47,6 +49,7 @@ LANGUAGE_MAP = {
     'ms': Language.MALAY,
     'sk': Language.SLOVAK,
     'da': Language.DANISH,
+    'ta': Language.TAMIL,
     'uk': Language.UKRAINIAN,
     'ru': Language.RUSSIAN,
     'hu': Language.HUNGARIAN,
@@ -83,7 +86,7 @@ def get_cached_audio(text_hash):
         if result.data and len(result.data) > 0:
 
             file_path = result.data[0]['file_path']
-            audio_data = supabase.storage.from_('audio-files').download_(file_path)
+            audio_data = supabase.storage.from_('audio-files').download(file_path)
             return audio_data
         return None
     except Exception as e:
@@ -114,7 +117,7 @@ def cache_audio(text_hash, text, audio_data, language):
 def generate_audio_elevenlabs(text, language_code):
     """Generate audio files using ElevenLabs """
     try:
-        audio_generrator = elevenlabs_client.generate(
+        audio_generator = elevenlabs_client.generate(
             text=text,
             voice="Adam",
             model="eleven_turbo_v2.5"
@@ -133,7 +136,7 @@ def process_deck(apkg_file, target_language):
     if not target_lang:
         raise ValueError(f"unsupported language: {target_language}")
     
-    with tempfile.TemporaryDirector() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         apkg_path = os.path.join(temp_dir, 'deck.apkg')
         with open(apkg_path, 'wb') as f:
             f.write(apkg_file)
@@ -220,40 +223,40 @@ def process_deck(apkg_file, target_language):
         with open(output_path, 'rb') as f:
             output_data = f.read()
 
-            return output_data, updated_count 
+        return output_data, updated_count 
         
-    class handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            try:
-                content_type = self.headers.get('Content-Type')
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            content_type = self.headers.get('Content-Type')
 
-                if 'multipart/form-data' not in content_type:
-                    raise ValueError("expected multipart/form-data")
-                
-                form = cgi.FieldStorage(
-                    fp=self.rfile,
-                    headers=self.headers,
-                    environ={'REQUEST_METHOD': 'POST'}
-                )
+            if 'multipart/form-data' not in content_type:
+                raise ValueError("expected multipart/form-data")
 
-                file_item = form['file']
-                language = form.getvalue('language')
+            form = cgi.FieldStorage(
+                fp=self.rfile,
+                headers=self.headers,
+                environ={'REQUEST_METHOD': 'POST'}
+            )
 
-                if not file_item.file:
-                    raise ValueError("No file uploaded")
-                
-                file_data = file_item.file.read()
+            file_item = form['file']
+            language = form.getvalue('language')
 
-                output_data, updated_count = process_deck(file_data, language)
+            if not file_item.file:
+                raise ValueError("No file uploaded")
 
-                self.send_response(200)
-                self.send_header('Content-type', 'application/octet-stream')
-                self.end_headers()
-                self.wfile.write(output_data)
+            file_data = file_item.file.read()
 
-            except Exception as e:
-                self.send_response(400)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                error_response = {'status': 'error', 'message': str(e)}
-                self.wfile.write(json.dumps(error_response).encode())
+            output_data, updated_count = process_deck(file_data, language)
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/octet-stream')
+            self.end_headers()
+            self.wfile.write(output_data)
+
+        except Exception as e:
+            self.send_response(400)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            error_response = {'status': 'error', 'message': str(e)}
+            self.wfile.write(json.dumps(error_response).encode())
