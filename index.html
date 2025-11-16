@@ -62,9 +62,16 @@
             }
 
             .upload-icon {
-                font-size: 3rem;
-                margin-bottom: 1rem;
+                width: 4rem;
+                height: 4rem;
+                margin: 0 auto 1rem;
                 opacity: 0.6;
+            }
+
+            .upload-icon img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
             }
 
             .upload-text {
@@ -256,10 +263,12 @@
     <body>
         <div class="container">
             <h1>Anki Audio Generator</h1>
-            <p class="subtitle">Upload your Anki deck to add Audio in the target language</p>
+            <p class="subtitle">Create an audio practice deck from your existing Anki cards</p>
 
             <div class="upload-area" id="uploadArea">
-                <div class="upload-icon"></div>
+                <div class="upload-icon">
+                    <img src="assets/package.svg" alt="Package icon">
+                </div>
                 <div class="upload-text">Drop your .apkg file here</div>
                 <div class="upload-hint">Or click to browse your files</div>
                 <input type="file" id="fileInput" accept=".apkg">
@@ -276,7 +285,7 @@
                 <h2>Configure Audio Generation</h2>
 
                 <div class="form-group">
-                    <label for="targetLanguage">Target Language for Audio</label>
+                    <label for="targetLanguage">Language to Generate Audio In</label>
                     <select id="targetLanguage">
                         <option value="">Select language...</option>
                         <option value="en">English</option>
@@ -314,7 +323,45 @@
                     </select>
                 </div>
 
-                <button class="process-btn" id="processBtn" disabled>Generate Audio</button>
+                <div class="form-group">
+                    <label for="nativeLanguage">Your Native Language (for answers)</label>
+                    <select id="nativeLanguage">
+                        <option value="en" selected>English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="pt">Portuguese</option>
+                        <option value="ar">Arabic</option>
+                        <option value="ja">Japanese</option>
+                        <option value="zh">Chinese</option>
+                        <option value="de">German</option>
+                        <option value="hi">Hindi</option>
+                        <option value="ko">Korean</option>
+                        <option value="it">Italian</option>
+                        <option value="id">Indonesian</option>
+                        <option value="nl">Dutch</option>
+                        <option value="tr">Turkish</option>
+                        <option value="fil">Filipino</option>
+                        <option value="pl">Polish</option>
+                        <option value="sv">Swedish</option>
+                        <option value="bg">Bulgarian</option>
+                        <option value="ro">Romanian</option>
+                        <option value="cs">Czech</option>
+                        <option value="el">Greek</option>
+                        <option value="fi">Finnish</option>
+                        <option value="hr">Croatian</option>
+                        <option value="ms">Malay</option>
+                        <option value="sk">Slovak</option>
+                        <option value="da">Danish</option>
+                        <option value="ta">Tamil</option>
+                        <option value="uk">Ukrainian</option>
+                        <option value="ru">Russian</option>
+                        <option value="hu">Hungarian</option>
+                        <option value="no">Norwegian</option>
+                        <option value="vi">Vietnamese</option>
+                    </select>
+                </div>
+
+                <button class="process-btn" id="processBtn" disabled>Generate Audio Practice Deck</button>
             </div>
 
             <div class="progress-section" id="progressSection">
@@ -336,6 +383,7 @@
             const removeBtn = document.getElementById('removeBtn');
             const configSection = document.getElementById('configSection');
             const targetLanguage = document.getElementById('targetLanguage');
+            const nativeLanguage = document.getElementById('nativeLanguage');
             const processBtn = document.getElementById('processBtn');
             const progressSection = document.getElementById('progressSection');
             const progressFill = document.getElementById('progressFill');
@@ -386,7 +434,7 @@
                 processBtn.disabled = true;
                 progressSection.classList.add('show');
 
-                await processFile(selectedFile, targetLanguage.value);
+                await processFile(selectedFile, targetLanguage.value, nativeLanguage.value);
                 
             });
 
@@ -412,19 +460,20 @@
                 fileInfo.classList.add('show');
                 configSection.classList.add('show');
 
-                showStatus('File uploaded successfully! Please select target language below', 'success');
+                showStatus('File uploaded successfully! Please select languages below', 'success');
 
                 console.log('file ready:', file);
             }
 
-            async function processFile(file, language) {
+            async function processFile(file, targetLang, nativeLang) {
                 try {
-                    console.log('Starting processFile with:', file.name, 'language:', language);
+                    console.log('Starting processFile with:', file.name, 'target language:', targetLang, 'native language:', nativeLang);
                     updateProgress(0, 'uploading deck...');
 
                     const formData = new FormData();
                     formData.append('file', file);
-                    formData.append('language', language);
+                    formData.append('language', targetLang);
+                    formData.append('native_language', nativeLang);
 
                     console.log('FormData created, sending request...');
 
@@ -451,13 +500,13 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = file.name.replace('.apkg', '_with_audio.apkg');
+                    a.download = file.name.replace('.apkg', '_audio_practice.apkg');
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
 
-                    showStatus(`Success! Processed deck downloaded. Cards updated.`, 'success');
+                    showStatus(`Success! Audio practice deck downloaded.`, 'success');
                     progressSection.classList.remove('show');
 
                 } catch (error) {
