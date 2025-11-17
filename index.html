@@ -431,7 +431,7 @@
     <body>
         <div class="container">
             <h1>Anki Audio Generator</h1>
-            <p class="subtitle">Create an audio practice deck from your existing Anki cards</p>
+            <p class="subtitle">Create an audio practice deck from your existing Anki cards (max 500 cards to prevent abuse)</p>
 
             <div class="upload-area" id="uploadArea">
                 <div class="upload-icon">
@@ -601,6 +601,46 @@
 
             let selectedFile = null;
             let analysisData = null;
+            let progressMessageInterval = null;
+
+            const loadingMessages = [
+                'Analyzing your cards...',
+                'Detecting languages...',
+                'Processing deck structure...',
+                'Preparing audio generation...',
+                'Examining card contents...',
+                'Organizing your study material...',
+                'Setting up language detection...',
+                'Reviewing card fields...',
+                'Generating audio files...',
+                'Creating pronunciation guides...',
+                'Recording native speaker audio...',
+                'Optimizing audio quality...',
+                'Synthesizing speech patterns...',
+                'Fine-tuning pronunciations...',
+                'Compiling audio tracks...',
+                'Encoding audio data...',
+                'Almost there...',
+                'Finishing up...',
+                'Packaging your deck...'
+            ];
+
+            function getRandomLoadingMessage() {
+                return loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+            }
+
+            function startRandomLoadingMessages() {
+                progressMessageInterval = setInterval(() => {
+                    progressText.textContent = getRandomLoadingMessage();
+                }, 2000);
+            }
+
+            function stopRandomLoadingMessages() {
+                if (progressMessageInterval) {
+                    clearInterval(progressMessageInterval);
+                    progressMessageInterval = null;
+                }
+            }
 
             uploadArea.addEventListener('click', () => {
                 fileInput.click();
@@ -646,6 +686,10 @@
 
                 processBtn.disabled = true;
                 progressSection.classList.add('show');
+
+                setTimeout(() => {
+                    progressSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
 
                 await analyzeFile(selectedFile, targetLanguage.value, nativeLanguage.value);
             });
@@ -694,6 +738,7 @@
                 try {
                     console.log('Starting analysis with:', file.name, 'target language:', targetLang, 'native language:', nativeLang);
                     updateProgress(0, 'Uploading and analyzing deck...');
+                    startRandomLoadingMessages();
 
                     const formData = new FormData();
                     formData.append('file', file);
@@ -711,15 +756,25 @@
                     if (!response.ok) {
                         const errorText = await response.text();
                         console.error('Server error:', errorText);
+                        stopRandomLoadingMessages();
                         throw new Error(`Analysis failed: ${response.status} - ${errorText}`);
                     }
 
                     const result = await response.json();
                     console.log('Analysis result:', result);
 
+                    stopRandomLoadingMessages();
                     updateProgress(100, 'Analysis complete!');
 
                     analysisData = result.data;
+
+                    if (result.data.total_cards > 500) {
+                        progressSection.classList.remove('show');
+                        showStatus('Deck has too many cards! Maximum 500 cards allowed to prevent abuse. Your deck has ' + result.data.total_cards + ' cards.', 'error');
+                        processBtn.disabled = false;
+                        return;
+                    }
+
                     displayPreview(analysisData, targetLang);
 
                     progressSection.classList.remove('show');
@@ -731,6 +786,7 @@
 
                 } catch (error) {
                     console.error('Error details:', error);
+                    stopRandomLoadingMessages();
                     showStatus(`Analysis failed: ${error.message}`, 'error');
                     progressSection.classList.remove('show');
                     processBtn.disabled = false;
@@ -818,9 +874,19 @@
                         return;
                     }
 
+                    if (selectedCards.length > 500) {
+                        showStatus('Too many cards selected! Maximum 500 cards allowed to prevent abuse. You selected ' + selectedCards.length + ' cards.', 'error');
+                        return;
+                    }
+
                     generateFinalBtn.disabled = true;
                     progressSection.classList.add('show');
                     updateProgress(0, 'Generating audio...');
+                    startRandomLoadingMessages();
+
+                    setTimeout(() => {
+                        progressSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
 
                     const response = await fetch('https://ankiaudiogenerator-production.up.railway.app/api/process', {
                         method: 'POST',
@@ -839,9 +905,11 @@
                     if (!response.ok) {
                         const errorText = await response.text();
                         console.error('Server error:', errorText);
+                        stopRandomLoadingMessages();
                         throw new Error(`Processing failed: ${response.status} - ${errorText}`);
                     }
 
+                    stopRandomLoadingMessages();
                     updateProgress(50, 'Processing complete, downloading...');
 
                     const blob = await response.blob();
@@ -858,12 +926,13 @@
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
 
-                    showStatus(`Success! Audio practice deck downloaded with ${selectedCards.length} cards.`, 'success');
+                    showStatus(`Thank you! Your audio practice deck with ${selectedCards.length} cards has been downloaded successfully.`, 'success');
                     progressSection.classList.remove('show');
                     generateFinalBtn.disabled = false;
 
                 } catch (error) {
                     console.error('Error details:', error);
+                    stopRandomLoadingMessages();
                     showStatus(`Processing failed: ${error.message}`, 'error');
                     progressSection.classList.remove('show');
                     generateFinalBtn.disabled = false;
