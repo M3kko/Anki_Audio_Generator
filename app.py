@@ -130,6 +130,126 @@ def generate_audio_elevenlabs(text, language):
     except Exception as e:
         print(f"ElevenLabs error: {e}")
         return None
+    
+
+def analyze_deck(apkg_file, native_language):
+    """Analyze anki deck to give the user a preview of what will be created"""
+
+    import sqlite3
+
+    print(f"analyze the deck called")
+    print(f"Native language: {native_language}")
+
+    native_lang = LANGUAGE_MAP.get(native_language)
+
+    if not native_lang:
+        raise ValueError(f"Unsupported native language code: {native_language}")
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        print(f"Created temporary directory: {temp_dir}")
+
+        apkg_path = os.path.join(temp_dir, 'deck.apkg')
+        with open(apkg_path, 'wb') as f:
+            f.write(apkg_file)
+
+        extract_dir = os.path.join(temp_dir, 'extracted')
+        os.makedirs(extract_dir)
+
+        with zipfile.ZipFile(apkg_path, 'r') as zip_ref:
+            print(f"files in .apkg: {zip_ref.namelist()}")
+            zip_ref.extractall(extract_dir)
+
+        files_in_extract = os.listdir(extract_dir)
+        print(f"Extracted files: {files_in_extract}")
+
+        db_path = os.path.join(extract_dir, 'collection.anki21')
+        if not os.path.exists(db_path):
+            db_path = os.path.join(extract_dir, 'collection.anki2')
+            print(f"Using collection.anki2 fallback")
+        else:
+            print(f"Using collection.anki21")
+
+        print(f"Database path: {db_path}, exists: {os.path.exists(db_path)}")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id, flds FROM notes")
+        notes = cursor.fetchall()
+        print(f"Found {len(notes)} notes in deck")
+
+        conn.close()
+
+        cards_data = []
+        uncertain_count = 0
+
+        for note_id, fields_str in notes:
+            fields = fields_str.split('\x1f')
+            print(f"\nNote {note_id}: {len(fields)} fields")
+
+            field_data = []
+            foreign_text = None
+            foreign_detected_lang = None
+            is_uncertain = False
+
+            for i, field in enumerate(fields):
+                clean_text = re.sub('<[^<]+?>', '', field).strip()
+
+                if not clean_text:
+                    continue
+
+                detected_lang = detect_field_language(clean_text)
+
+                detected_lang_code = None
+                if detected_lang:
+                    for code, lang in LANGUAGE_MAP.items():
+                        if lang == detected_lang:
+                            detected_lang_code = code
+                            break
+                print(f"Field {i}: '{clean_text[:50]}...' -> detected: {detected_lang}")
+
+                field_data.append({
+                    'text': clean_text,
+                    'detected_language': detected_lang_code,
+                    'is_native': detected_lang == native_lang
+                })
+
+                if detected_lang == native_lang:
+                    if not native_text:
+                        native_text = clean_text
+                        print(f"✓ Found native language field ({native_language}) - NO AUDIO")
+                else:
+                    if not foreign_text:
+                        foreign_text = clean_text
+                        foreign_detected_lang = detected_lang_code
+                        print(f"✓ Found non-native field - WILL GENERATE AUDIO")
+            
+            if not foreign_text or not native_text:
+                is_uncertain = True
+                uncertain_count += 1
+                print(f "UNCERTAIN: Could not identify clear foreign/native text split")
+
+                if len(field_data) >= 2:
+                    foreign_text = field_data[0]['text']
+                    foreign_detected_lang = field_data[0]['detected_language']
+                    native_text = field_data[1]['text']
+
+            if foreign_text and native_text:
+                cards_data.append({
+                    'note_id': note_id,
+                    'foreign_text': foreign_text,
+                    'native_text': native_text,
+                    'foreign_language': foreign_detected_lang,
+                    'is_uncertain': is_uncertain,
+                    'all_fields': field_data
+                })
+
+        print(f"\nAnalysis complete: {len(cards_data)} cards, {uncertain_count} uncertain")
+
+        return {
+            'total_cards': len(cards_data),
+            'uncertain_cards': uncertain_count,
+            'cards': cards_data
+        }
 
 def process_deck(apkg_file, target_language, native_language):
     """Process anki deck and create audio practice deck"""
@@ -139,6 +259,45 @@ def process_deck(apkg_file, target_language, native_language):
     print(f"proces deck called")
     print(f"Target language (for audio): {target_language}")
     print(f"Native language (no audio): {native_language}")
+    print(f"Processing {len(cards_data)} cards")
+
+    deck_id = int(hashlib.md5(f"audio_practice_{target_language}_{native_language}".encode()).hexdigest()[:8], 16)
+    deck = genanki.Deck(deck_id, f"Audio Practice Deck ({target_language.upper()} - {native_language.upper()})")
+
+    model_id = int(hashlib.md5(f"audio_practice_model_{target_language}_{native_language}".encode()).hexdigest()[:8], 16)
+    model = genanki.Model(
+        model_id,
+        'Audio Practice Model',
+        fields=[
+            {'name': 'Audio'},
+            {'name': 'ForeignText'},
+            {'name': 'NativeText'},
+        ],
+        templates=[
+            {
+                'name': 'Audio to Native',
+                'qfmt': '{{Audio}}',
+                'afmt': '{{FrontSide}}<hr id="answer">{{NativeText}}',
+            }
+        ])
+    
+    media_files_data = {}
+    cards_created = 0
+
+    for card in cards_data:
+        foreign_text = card['foreign_text']
+        native_text = card['native_text']
+
+        print(f"\nProcessing card: '{foreign_text[:50]}...'")
+
+        text_hash = generate_audio_hash(foreign_text)
+        audio_filename = f"{text_hash}.mp3"
+
+        audio_data = get_cached_audio(text_hash)
+
+        if not audio_data:
+            print(f" Generating new audio with ElevenLabs in {target_language}...")
+            audio_data = generate_audio_elevenlabs(foreign_text, target_language)
 
     native_lang = LANGUAGE_MAP.get(native_language)
 
