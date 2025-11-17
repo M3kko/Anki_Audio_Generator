@@ -258,6 +258,154 @@
                 font-size: 0.9rem;
                 text-align: center;
             }
+
+
+            .preview-section {
+                margin-top: 2rem;
+                padding: 2rem;
+                background: #111;
+                border-radius: 12px;
+                border: 1px solid #222;
+                display: none;
+            }
+
+            .preview-section.show {
+                display: block;
+            }
+
+            .preview-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1.5rem;
+            }
+
+            .preview-header h2 {
+                font-size: 1.3rem;
+                font-weight: 600;
+            }
+
+            .card-count {
+                color: #888;
+                font-size: 0.9rem;
+            }
+
+            .warning-banner {
+                background: #3a2f0f;
+                border: 1px solid #4e3a13;
+                color: #fbbf24;
+                padding: 0.75rem 1rem;
+                border-radius: 6px;
+                margin-bottom: 1.5rem;
+                font-size: 0.9rem;
+            }
+
+            .preview-table-container {
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #222;
+                border-radius: 8px;
+                margin-bottom: 1.5rem;
+            }
+
+            .preview-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .preview-table thead {
+                position: sticky;
+                top: 0;
+                background: #0a0a0a;
+                z-index: 10;
+            }
+
+            .preview-table th {
+                padding: 0.75rem;
+                text-align: left;
+                font-size: 0.85rem;
+                color: #aaa;
+                font-weight: 600;
+                border-bottom: 1px solid #222;
+            }
+
+            .preview-table td {
+                padding: 0.75rem;
+                border-bottom: 1px solid #1a1a1a;
+                font-size: 0.9rem;
+            }
+
+            .preview-table tr:hover {
+                background: #151515;
+            }
+
+            .preview-table tr.uncertain {
+                background: #1a1a0f; 
+            }
+
+            .preview-table tr.uncertain:hover {
+                background: #252015; 
+            }
+
+            .card-number {
+                color: #666;
+                font-size: 0.85rem;
+            }
+
+            .text-preview {
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .language-badge {
+                display: inline-block;
+                padding: 0.25rem 0.5rem;
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 4px;
+                font-size: 0.8rem;
+                color: #aaa;
+            }
+
+            .uncertain-badge {
+                color: #fbbf24;
+                margin-left: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            .card-checkbox {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+                accent-color: #fff;
+            }
+
+            .generate-final-btn {
+                width: 100%;
+                padding: 1rem;
+                background: #fff;
+                color: #0a0a0a;
+                border: none;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
+            .generate-final-btn:hover {
+                background: #e5e5e5;
+            }
+
+            .generate-final-btn:disabled {
+                background: #333;
+                color: #666;
+                cursor: not-allowed;
+            }
+
+
         </style>
     </head>
     <body>
@@ -364,6 +512,36 @@
                 <button class="process-btn" id="processBtn" disabled>Generate Audio Practice Deck</button>
             </div>
 
+            <div class="preview-section" id="previewSection">
+                <div class="preview-header">
+                    <h2>Card Preview</h2>
+                    <span class="card-count" id="cardCount">0 cards</span>
+                </div>
+
+                <div class="warning-banner" id="warningBanner" style="display: none;">
+                    ⚠ <span id="uncertainCount">0</span> cards have uncertain language detection. Review and check the boxes to include them.
+                </div>
+
+                <div class="preview-table-container">
+                    <table class="preview-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 250px;">Foreign Text</th>
+                                <th style="width: 100px;">Detected</th>
+                                <th style="width: 250px;">Native Text</th>
+                                <th style="width: 80px; text-align: center;">Include?</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewTableBody">
+                            <!-- Cardss will be dynamically added here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <button class="generate-final-btn" id="generateFinalBtn" disabled>Generate Audio for <span id="selectedCount">0</span> Cards</button>
+            </div>
+
             <div class="progress-section" id="progressSection">
                 <h2>Processing...</h2>
                 <div class="progress-bar">
@@ -389,7 +567,16 @@
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
 
+            const previewSection = document.getElementById('previewSection');
+            const previewTableBody = document.getElementById('previewTableBody');
+            const cardCount = document.getElementById('cardCount');
+            const warningBanner = document.getElementById('warningBanner');
+            const uncertainCount = document.getElementById('uncertainCount');
+            const generateFinalBtn = document.getElementById('generateFinalBtn');
+            const selectedCount = document.getElementById('selectedCount');
+
             let selectedFile = null;
+            let analysisData = null;
 
             uploadArea.addEventListener('click', () => {
                 fileInput.click();
@@ -416,10 +603,12 @@
 
             removeBtn.addEventListener('click', () => {
                 selectedFile = null;
+                analysisData = null;
                 fileInput.value = '';
                 fileInfo.classList.remove('show');
                 configSection.classList.remove('show');
                 progressSection.classList.remove('show');
+                previewSection.classList.remove('show');
                 status.style.display = 'none';
                 processBtn.disabled = true;
             });
@@ -434,8 +623,11 @@
                 processBtn.disabled = true;
                 progressSection.classList.add('show');
 
-                await processFile(selectedFile, targetLanguage.value, nativeLanguage.value);
-                
+                await analyzeFile(selectedFile, targetLanguage.value, nativeLanguage.value);
+            });
+
+            generateFinalBtn.addEventListener('click', async () => {
+                await processFinalCards();
             });
 
             function handleFile(file) {
@@ -446,15 +638,14 @@
                     return;
                 }
 
-                const maxSize = 50 * 1024 * 1024; // 50mb
+                const maxSize = 50 * 1024 * 1024;
                 if (file.size > maxSize) {
-                    showStatus('File is too large. Maximum sizeis 50MB', 'error');
+                    showStatus('File is too large. Maximum size is 50MB', 'error');
                     return;
                 }
 
                 selectedFile = file;
 
-                //file info display
                 fileName.innerHTML = `${file.name}`;
                 fileSize.textContent = formatFileSize(file.size);
                 fileInfo.classList.add('show');
@@ -462,24 +653,155 @@
 
                 showStatus('File uploaded successfully! Please select languages below', 'success');
 
-                console.log('file ready:', file);
+                console.log('File ready:', file);
             }
 
-            async function processFile(file, targetLang, nativeLang) {
+            async function analyzeFile(file, targetLang, nativeLang) {
                 try {
-                    console.log('Starting processFile with:', file.name, 'target language:', targetLang, 'native language:', nativeLang);
-                    updateProgress(0, 'uploading deck...');
+                    console.log('Starting analysis with:', file.name, 'target language:', targetLang, 'native language:', nativeLang);
+                    updateProgress(0, 'Uploading and analyzing deck...');
 
                     const formData = new FormData();
                     formData.append('file', file);
-                    formData.append('language', targetLang);
                     formData.append('native_language', nativeLang);
 
-                    console.log('FormData created, sending request...');
+                    console.log('Sending analysis request...');
 
-                    const response = await fetch ('https://ankiaudiogenerator-production.up.railway.app/api/process', {
+                    const response = await fetch('https://ankiaudiogenerator-production.up.railway.app/api/analyze', {
                         method: 'POST',
                         body: formData
+                    });
+
+                    console.log('Analysis response received:', response.status, response.statusText);
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Server error:', errorText);
+                        throw new Error(`Analysis failed: ${response.status} - ${errorText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('Analysis result:', result);
+
+                    updateProgress(100, 'Analysis complete!');
+
+                    analysisData = result.data;
+                    displayPreview(analysisData, targetLang);
+
+                    progressSection.classList.remove('show');
+                    showStatus('Analysis complete! Review cards below and click Generate.', 'success');
+
+                } catch (error) {
+                    console.error('Error details:', error);
+                    showStatus(`Analysis failed: ${error.message}`, 'error');
+                    progressSection.classList.remove('show');
+                    processBtn.disabled = false;
+                }
+            }
+
+            function displayPreview(data, targetLang) {
+                console.log('Displaying preview for', data.total_cards, 'cards');
+
+                cardCount.textContent = `${data.total_cards} cards`;
+
+                if (data.uncertain_count > 0) {
+                    uncertainCount.textContent = data.uncertain_count;
+                    warningBanner.style.display = 'block';
+                } else {
+                    warningBanner.style.display = 'none';
+                }
+
+                previewTableBody.innerHTML = '';
+
+                data.cards.forEach((card, index) => {
+                    const row = document.createElement('tr');
+                    if (card.is_uncertain) {
+                        row.classList.add('uncertain');
+                    }
+
+                    const numCell = document.createElement('td');
+                    numCell.innerHTML = `<span class="card-number">${index + 1}</span>`;
+                    row.appendChild(numCell);
+
+                    const foreignCell = document.createElement('td');
+                    foreignCell.innerHTML = `<span class="text-preview" title="${card.foreign_text}">${card.foreign_text}</span>`;
+                    row.appendChild(foreignCell);
+
+                    const langCell = document.createElement('td');
+                    const langBadge = card.foreign_language ?
+                        `<span class="language-badge">${card.foreign_language.toUpperCase()}</span>` :
+                        `<span class="language-badge">?</span>`;
+                    const uncertainBadge = card.is_uncertain ?
+                        `<span class="uncertain-badge">⚠</span>` : '';
+                    langCell.innerHTML = langBadge + uncertainBadge;
+                    row.appendChild(langCell);
+
+                    const nativeCell = document.createElement('td');
+                    nativeCell.innerHTML = `<span class="text-preview" title="${card.native_text}">${card.native_text}</span>`;
+                    row.appendChild(nativeCell);
+
+                    const checkCell = document.createElement('td');
+                    checkCell.style.textAlign = 'center';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'card-checkbox';
+                    checkbox.checked = !card.is_uncertain;
+                    checkbox.dataset.cardIndex = index;
+                    checkbox.addEventListener('change', updateSelectedCount);
+                    checkCell.appendChild(checkbox);
+                    row.appendChild(checkCell);
+
+                    previewTableBody.appendChild(row);
+                });
+
+                previewSection.classList.add('show');
+
+                updateSelectedCount();
+            }
+
+            function updateSelectedCount() {
+                const checkboxes = document.querySelectorAll('.card-checkbox');
+                const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+
+                selectedCount.textContent = checkedCount;
+                generateFinalBtn.disabled = checkedCount === 0;
+            }
+
+            async function processFinalCards() {
+                try {
+                    console.log('Starting final processing...');
+
+                    const checkboxes = document.querySelectorAll('.card-checkbox');
+                    const selectedCards = [];
+
+                    checkboxes.forEach(checkbox => {
+                        if (checkbox.checked) {
+                            const index = parseInt(checkbox.dataset.cardIndex);
+                            selectedCards.push(analysisData.cards[index]);
+                        }
+                    });
+
+                    console.log('Selected cards:', selectedCards.length);
+
+                    if (selectedCards.length === 0) {
+                        showStatus('Please select at least one card to process', 'error');
+                        return;
+                    }
+
+                    generateFinalBtn.disabled = true;
+                    progressSection.classList.add('show');
+                    updateProgress(0, 'Generating audio...');
+
+                    const response = await fetch('https://ankiaudiogenerator-production.up.railway.app/api/process', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            cards: selectedCards,
+                            target_language: targetLanguage.value,
+                            native_language: nativeLanguage.value
+                        })
                     });
 
                     console.log('Response received:', response.status, response.statusText);
@@ -495,25 +817,26 @@
                     const blob = await response.blob();
                     console.log('Blob received, size:', blob.size);
 
-                    updateProgress(100, 'Complete!')
+                    updateProgress(100, 'Complete!');
 
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = file.name.replace('.apkg', '_audio_practice.apkg');
+                    a.download = selectedFile.name.replace('.apkg', '_audio_practice.apkg');
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
 
-                    showStatus(`Success! Audio practice deck downloaded.`, 'success');
+                    showStatus(`Success! Audio practice deck downloaded with ${selectedCards.length} cards.`, 'success');
                     progressSection.classList.remove('show');
+                    generateFinalBtn.disabled = false;
 
                 } catch (error) {
                     console.error('Error details:', error);
                     showStatus(`Processing failed: ${error.message}`, 'error');
                     progressSection.classList.remove('show');
-                    processBtn.disabled = false;
+                    generateFinalBtn.disabled = false;
                 }
             }
 
@@ -531,10 +854,10 @@
             }
 
             function showStatus(message, type) {
-              status.textContent = message;
-              status.className = `status ${type}`;
-              status.style.display = 'block';
-          }
+                status.textContent = message;
+                status.className = `status ${type}`;
+                status.style.display = 'block';
+            }
 
         </script>
     </body>

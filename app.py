@@ -130,7 +130,7 @@ def generate_audio_elevenlabs(text, language):
     except Exception as e:
         print(f"ElevenLabs error: {e}")
         return None
-    
+
 
 def analyze_deck(apkg_file, native_language):
     """Analyze anki deck to give the user a preview of what will be created"""
@@ -144,7 +144,7 @@ def analyze_deck(apkg_file, native_language):
 
     if not native_lang:
         raise ValueError(f"Unsupported native language code: {native_language}")
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Created temporary directory: {temp_dir}")
 
@@ -188,6 +188,7 @@ def analyze_deck(apkg_file, native_language):
 
             field_data = []
             foreign_text = None
+            native_text = None  # FIXED: Declare native_text here
             foreign_detected_lang = None
             is_uncertain = False
 
@@ -222,11 +223,11 @@ def analyze_deck(apkg_file, native_language):
                         foreign_text = clean_text
                         foreign_detected_lang = detected_lang_code
                         print(f"✓ Found non-native field - WILL GENERATE AUDIO")
-            
+
             if not foreign_text or not native_text:
                 is_uncertain = True
                 uncertain_count += 1
-                print(f "UNCERTAIN: Could not identify clear foreign/native text split")
+                print(f"⚠ UNCERTAIN: Could not identify clear foreign/native text split")  # FIXED: Syntax error
 
                 if len(field_data) >= 2:
                     foreign_text = field_data[0]['text']
@@ -247,20 +248,26 @@ def analyze_deck(apkg_file, native_language):
 
         return {
             'total_cards': len(cards_data),
-            'uncertain_cards': uncertain_count,
+            'uncertain_count': uncertain_count,  # FIXED: Changed key name to match
             'cards': cards_data
         }
 
-def process_deck(apkg_file, target_language, native_language):
-    """Process anki deck and create audio practice deck"""
+# FIXED: Changed function signature to accept cards_data instead of apkg_file
+def process_deck(cards_data, target_language, native_language):
+    """Process cards with user-corrected languages and generate audio
 
-    import sqlite3
+    Args:
+        cards_data: List of card objects with corrected languages from frontend
+        target_language: Language code for audio generation
+        native_language: Language code for native language
+    """
 
-    print(f"proces deck called")
+    print(f"=== process_deck called ===")
     print(f"Target language (for audio): {target_language}")
     print(f"Native language (no audio): {native_language}")
     print(f"Processing {len(cards_data)} cards")
 
+    # Create deck directly from card data
     deck_id = int(hashlib.md5(f"audio_practice_{target_language}_{native_language}".encode()).hexdigest()[:8], 16)
     deck = genanki.Deck(deck_id, f"Audio Practice Deck ({target_language.upper()} - {native_language.upper()})")
 
@@ -280,10 +287,11 @@ def process_deck(apkg_file, target_language, native_language):
                 'afmt': '{{FrontSide}}<hr id="answer">{{NativeText}}',
             }
         ])
-    
+
     media_files_data = {}
     cards_created = 0
 
+    # Process each card from frontend data
     for card in cards_data:
         foreign_text = card['foreign_text']
         native_text = card['native_text']
@@ -296,129 +304,33 @@ def process_deck(apkg_file, target_language, native_language):
         audio_data = get_cached_audio(text_hash)
 
         if not audio_data:
-            print(f" Generating new audio with ElevenLabs in {target_language}...")
+            print(f"  Generating new audio with ElevenLabs in {target_language}...")
             audio_data = generate_audio_elevenlabs(foreign_text, target_language)
 
-    native_lang = LANGUAGE_MAP.get(native_language)
-
-    if not native_lang:
-        raise ValueError(f"Unsupported native language code: {native_language}")
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        print(f"Created temporary directory: {temp_dir}")
-
-        apkg_path = os.path.join(temp_dir, 'deck.apkg')
-        with open(apkg_path, 'wb') as f:
-            f.write(apkg_file)
-
-        extract_dir = os.path.join(temp_dir, 'extracted')
-        os.makedirs(extract_dir)
-
-        with zipfile.ZipFile(apkg_path, 'r') as zip_ref:
-            print(f"files in .apkg: {zip_ref.namelist()}")
-            zip_ref.extractall(extract_dir)
-
-        files_in_extract = os.listdir(extract_dir)
-        print(f"Extracted files: {files_in_extract}")
-
-        db_path = os.path.join(extract_dir, 'collection.anki21')
-        if not os.path.exists(db_path):
-            db_path = os.path.join(extract_dir, 'collection.anki2')
-            print(f"Using collection.anki2 fallback")
+            if audio_data:
+                print(f"  Audio generated! Size: {len(audio_data)} bytes")
+                cache_audio(text_hash, foreign_text, audio_data, target_language)
+            else:
+                print(f"  ERROR: Audio generation failed!")
+                continue
         else:
-            print(f"Using collection.anki21 (modern format)")
+            print(f"  Using cached audio, size: {len(audio_data)} bytes")
 
-        print(f"Database path: {db_path}, exists: {os.path.exists(db_path)}")
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        if audio_data:
+            media_files_data[audio_filename] = audio_data
 
-        cursor.execute("SELECT id, flds FROM notes")
-        notes = cursor.fetchall()
-        print(f"Found {len(notes)} notes in deck")
+            note = genanki.Note(
+                model=model,
+                fields=[f'[sound:{audio_filename}]', foreign_text, native_text]
+            )
+            deck.add_note(note)
+            cards_created += 1
+            print(f"  Card created!")
 
-        conn.close()
+    print(f"\nTotal cards created: {cards_created}")
 
-        deck_id = int(hashlib.md5(f"audio_practice_{target_language}_{native_language}".encode()).hexdigest()[:8], 16)
-        deck = genanki.Deck(deck_id, f"Audio Practice Deck ({target_language.upper()} - {native_language.upper()})")
-
-        model_id = int(hashlib.md5(f"audio_practice_model_{target_language}_{native_language}".encode()).hexdigest()[:8], 16)
-        model = genanki.Model(
-            model_id,
-            'Audio Practice Model',
-            fields=[
-                {'name': 'Audio'},
-                {'name': 'ForeignText'},
-                {'name': 'NativeText'},
-            ],
-            templates=[
-                {
-                    'name': 'Audio to Native',
-                    'qfmt': '{{Audio}}',
-                    'afmt': '{{FrontSide}}<hr id="answer">{{NativeText}}',
-                }
-            ])
-        media_files_data = {}
-        cards_created = 0
-
-        for note_id, fields_str in notes:
-            fields = fields_str.split('\x1f')
-            print(f"\nNote {note_id}: {len(fields)} fields")
-
-            foreign_text = None
-            native_text = None
-
-            for i, field in enumerate(fields):
-                clean_text = re.sub('<[^<]+?>', '', field).strip()
-
-                if not clean_text:
-                    continue
-
-                detected_lang = detect_field_language(clean_text)
-                print(f"  Field {i}: '{clean_text[:50]}...' -> detected: {detected_lang}")
-
-                if detected_lang == native_lang:
-                    if not native_text:
-                        native_text = clean_text
-                        print(f"  ✓ Found native language field ({native_language}) - NO AUDIO")
-
-                else:
-                    if not foreign_text:
-                        foreign_text = clean_text
-                        print(f"  ✓ Found non-native field - WILL GENERATE AUDIO")
-
-            if foreign_text and native_text:
-                print(f" Creating audio practice card...")
-                text_hash = generate_audio_hash(foreign_text)
-                audio_filename = f"{text_hash}.mp3"
-
-                audio_data = get_cached_audio(text_hash)
-
-                if not audio_data:
-                    print(f"    Generating new audio with ElevenLabs in {target_language}...")
-                    audio_data = generate_audio_elevenlabs(foreign_text, target_language)
-
-                    if audio_data:
-                        print(f"    Audio generated! Size: {len(audio_data)} bytes")
-                        cache_audio(text_hash, foreign_text, audio_data, target_language)
-                    else:
-                        print(f"    ERROR: Audio generation failed!")
-                        continue
-                else:
-                    print(f"    Using cached audio, size: {len(audio_data)} bytes")
-
-                if audio_data:
-                    media_files_data[audio_filename] = audio_data
-
-                    note = genanki.Note(
-                        model=model,
-                        fields=[f'[sound:{audio_filename}]', foreign_text, native_text]
-                    )
-                    deck.add_note(note)
-                    cards_created += 1
-                    print(f"    Card created!")
-
-        print(f"\nTotal cards created: {cards_created}")
-
+    # Package the deck
+    with tempfile.TemporaryDirectory() as temp_dir:
         package = genanki.Package(deck)
 
         media_dir = os.path.join(temp_dir, 'media')
@@ -445,10 +357,12 @@ def process_deck(apkg_file, target_language, native_language):
 def home():
     return jsonify({"status": "ok", "message": "Anki Audio Generator API"})
 
-@app.route('/api/process', methods=['POST'])
-def process():
+# MOVED: /api/analyze endpoint before /api/process
+@app.route('/api/analyze', methods=['POST'])
+def analyze():
+    """Analyze deck and return cards to user for preview before processing"""
     try:
-        print("=== Process request received ===")
+        print("=== Analyze request received ===")
         print(f"Request files: {request.files}")
         print(f"Request form: {request.form}")
 
@@ -456,22 +370,58 @@ def process():
             return jsonify({"status": "error", "message": "No file uploaded"}), 400
 
         file = request.files['file']
-        target_language = request.form.get('language')
         native_language = request.form.get('native_language', 'en')
 
         print(f"File: {file.filename}")
+        print(f"Native Language: {native_language}")
+
+        file_data = file.read()
+        print(f"File size: {len(file_data)} bytes")
+
+        print("Analyzing deck...")
+        analysis_result = analyze_deck(file_data, native_language)
+
+        print(f"Analysis complete: {analysis_result['total_cards']} cards analyzed")
+
+        return jsonify({
+            "status": "success",
+            "data": analysis_result
+        })
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# MODIFIED: /api/process now accepts JSON with cards data
+@app.route('/api/process', methods=['POST'])
+def process():
+    """Process cards with user-corrected languages and generate audio"""
+    try:
+        print("=== Process request received ===")
+
+        # Accept JSON data instead of form data
+        data = request.get_json()
+
+        cards_data = data.get('cards', [])
+        target_language = data.get('target_language')
+        native_language = data.get('native_language', 'en')
+
         print(f"Target Language (audio): {target_language}")
         print(f"Native Language (no audio): {native_language}")
+        print(f"Cards to process: {len(cards_data)}")
 
         if not target_language:
             print("ERROR: No target language specified")
             return jsonify({"status": "error", "message": "No target language specified"}), 400
 
-        file_data = file.read()
-        print(f"File size: {len(file_data)} bytes")
+        if not cards_data:
+            print("ERROR: No cards data provided")
+            return jsonify({"status": "error", "message": "No cards data provided"}), 400
 
         print("Processing deck...")
-        output_data, cards_created = process_deck(file_data, target_language, native_language)
+        output_data, cards_created = process_deck(cards_data, target_language, native_language)
 
         print(f"Processing complete! Created {cards_created} cards")
 
